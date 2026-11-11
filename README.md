@@ -1,126 +1,343 @@
-# IT Asset Inventory (Go, Gin and MySQL)
+# IT Asset Inventory Management System
 
-A small full-stack IT asset inventory application. The Go backend uses Gin for routing and the standard `net/http` server to serve the embedded frontend and REST API. MySQL stores employees and assets.
+A web-based IT asset inventory application developed using Go, Gin, and MySQL. The application helps maintain employee records, register IT assets, and track which devices are assigned to employees.
 
-## Features
+The project also demonstrates how the application can be containerized using Docker, deployed on Kubernetes using Minikube, and tested for performance and availability.
 
-- Employee CRUD: create, list, view, update and delete employees.
-- Asset CRUD: register, list, view, update and delete assets.
-- Asset assignment and return workflows.
-- Dashboard counts and asset status breakdown.
-- Search assets by tag, name, serial number, category or assigned employee; filter by status.
-- `/health` checks MySQL connectivity; `/health/live` checks that the process is responding.
-- Database tables are created automatically at application startup.
+## 1. Project Overview
 
-## Requirements
+The main purpose of this project is to manage IT assets through a simple web interface and REST API.
 
-- Go 1.23 or newer
-- MySQL 8.x (or a compatible MySQL server)
+The application supports employee management, asset registration, asset assignment, and basic inventory reporting. MySQL is used to store the information.
 
-## 1. Create the database
+The backend was developed in Go using the Gin framework. The frontend uses HTML, CSS, and JavaScript and is embedded into the Go executable.
 
-Create a MySQL database and an application user. Example commands (change the password):
+The DevOps part of the project focuses on containerization, deployment, health monitoring, load testing, and recovery from application failures.
 
-```sql
-CREATE DATABASE it_asset_inventory CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-CREATE USER 'appuser'@'localhost' IDENTIFIED BY 'change-this-password';
-GRANT SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, INDEX, REFERENCES ON it_asset_inventory.* TO 'appuser'@'localhost';
-FLUSH PRIVILEGES;
+### Technologies Used
+
+| Component | Technology |
+|---|---|
+| Backend | Go and Gin |
+| Frontend | HTML, CSS, JavaScript |
+| Database | MySQL 8.0 |
+| Containerization | Docker |
+| Multi-container setup | Docker Compose |
+| Container orchestration | Kubernetes |
+| Local Kubernetes cluster | Minikube |
+| Load testing | Grafana k6 |
+| Monitoring | Kubernetes Metrics Server |
+| Version control | Git and GitHub |
+| Development environment | Windows 11, VS Code, PowerShell |
+
+## 2. Application Features
+
+### Employee Management
+
+The application allows users to:
+
+- Register employees with their employee ID, name, email, and department.
+- View all registered employees.
+- Update employee information.
+- Delete employee records when no assets are assigned.
+
+### Asset Management
+
+IT assets can be registered with details such as asset tag, asset name, category, manufacturer, model, serial number, location, and purchase date.
+
+The application supports creating, viewing, updating, and deleting assets.
+
+The available asset statuses are:
+
+- Available
+- Assigned
+- Maintenance
+- Retired
+
+### Asset Assignment
+
+An available asset can be assigned to an employee. The system maintains the relationship between the employee and the assigned asset.
+
+An assigned asset can also be returned to inventory using the unassign operation.
+
+### Dashboard
+
+The dashboard displays inventory information, including total assets, assigned assets, available assets, and registered employees.
+
+The interface also provides asset searching and status-based filtering.
+
+## 3. Project Structure
+
+The project is organized as follows:
+
+```text
+DevOps Final/
+|
+|-- Dockerfile
+|-- docker-compose.yaml
+|-- .gitignore
+|-- README.md
+|-- database-schema.sql
+|-- go.mod
+|-- go.sum
+|-- main.go
+|
+|-- internal/
+|   |-- database/
+|   |   |-- database.go
+|   |
+|   |-- handlers/
+|       |-- handlers.go
+|
+|-- web/
+|   |-- index.html
+|   |-- app.css
+|   |-- app.js
+|
+|-- k8s/
+|   |-- deployment.yaml
+|   |-- service.yaml
+|   |-- mysql-deployment.yaml
+|   |-- mysql-service.yaml
+|
+|-- inventory-load-test.js
+|-- load-test-results.json
+|-- sustained-load-results.json
+|-- pod-metrics.csv
 ```
 
-The schema is also provided in `database-schema.sql`. The application runs `CREATE TABLE IF NOT EXISTS` migrations on startup, so the database itself must exist before starting the application.
+Database credentials are stored in a local `.env` file, which is excluded from Git.
 
-## 2. Configure and run
+Large raw load-testing files and compiled executables are also excluded from the repository.
 
-Set environment variables in your terminal (or use `.env.example` as a reference; the app does not automatically parse `.env` files):
+## 4. Database Configuration
 
-```bash
-export DB_HOST=127.0.0.1
-export DB_PORT=3306
-export DB_NAME=it_asset_inventory
-export DB_USER=appuser
-export DB_PASSWORD='change-this-password'
-export PORT=8080
-```
+MySQL 8.0 is used to store employee and asset information.
 
-Then run:
+The application connects to MySQL when it starts and runs database migrations to create the required tables if they do not already exist.
 
-```bash
-go mod tidy
-go run .
-```
+The database schema is also available in `database-schema.sql`.
 
-Open `http://localhost:8080` in a browser. Health endpoint: `http://localhost:8080/health`.
+The default database settings used in this project are:
 
-On Windows PowerShell, use `$env:DB_HOST="127.0.0.1"` etc. instead of `export`.
+| Setting | Value |
+|---|---|
+| Database | `it_asset_inventory` |
+| Database user | `appuser` |
+| MySQL port | `3306` |
+| Database host in Docker Compose | `db` |
+| Database host in Kubernetes | `inventory-mysql` |
 
-## REST API
+Database passwords are supplied through environment variables rather than being stored directly in the application source code.
 
-The application API routes are under `/api/v1`. For compatibility with the original starter code, the employee CRUD endpoints are also available at the original `/users` and `/users/:id` paths. The legacy paths accept the original `name` and `email` fields; `employee_id` is generated and `department` defaults to `Unassigned` when omitted.
+## 5. REST API
 
-### Employees
+The application exposes REST endpoints using Gin.
 
-| Method | Endpoint | Purpose |
+The main API prefix is `/api/v1`.
+
+### Employee Endpoints
+
+| Method | Endpoint | Description |
 |---|---|---|
-| POST | `/users` | Create employee |
-| GET | `/users` | List employees |
-| GET | `/users/:id` | Get employee |
-| PUT | `/users/:id` | Update employee |
-| DELETE | `/users/:id` | Delete employee (blocked while assets are assigned) |
+| POST | `/api/v1/users` | Create an employee |
+| GET | `/api/v1/users` | List employees |
+| GET | `/api/v1/users/:id` | Get employee details |
+| PUT | `/api/v1/users/:id` | Update employee information |
+| DELETE | `/api/v1/users/:id` | Delete an employee |
 
-Example employee JSON:
+Employee CRUD operations are also available through the unversioned `/users` routes.
 
-```json
-{"employee_id":"EMP-001","name":"Alex Morgan","email":"alex@example.com","department":"IT"}
-```
+### Asset Endpoints
 
-### Assets
-
-| Method | Endpoint | Purpose |
+| Method | Endpoint | Description |
 |---|---|---|
-| POST | `/assets` | Register an asset (starts as available) |
-| GET | `/assets` | List assets; optional `q` and `status` query parameters |
-| GET | `/assets/:id` | Get asset |
-| PUT | `/assets/:id` | Update asset details/status while unassigned |
-| DELETE | `/assets/:id` | Delete asset while unassigned |
-| PATCH | `/assets/:id/assign` | Assign asset to an employee |
-| PATCH | `/assets/:id/unassign` | Return assigned asset to inventory |
+| POST | `/api/v1/assets` | Register an asset |
+| GET | `/api/v1/assets` | List assets |
+| GET | `/api/v1/assets/:id` | Get asset details |
+| PUT | `/api/v1/assets/:id` | Update an asset |
+| DELETE | `/api/v1/assets/:id` | Delete an asset |
+| PATCH | `/api/v1/assets/:id/assign` | Assign an asset |
+| PATCH | `/api/v1/assets/:id/unassign` | Return an asset |
 
-Example asset JSON:
+### Dashboard and Health Endpoints
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/api/v1/dashboard/stats` | Dashboard statistics |
+| GET | `/health` | Application and database health |
+| GET | `/health/live` | HTTP server liveness |
+
+The `/health` endpoint checks whether the application can communicate with the MySQL database.
+
+The `/health/live` endpoint returns a response when the HTTP server is functioning.
+
+### Example Asset Request
 
 ```json
 {
-  "asset_tag":"AST-1001",
-  "asset_name":"Dell Latitude 5440",
-  "category":"Laptop",
-  "manufacturer":"Dell",
-  "model":"Latitude 5440",
-  "serial_number":"SN-EXAMPLE-1001",
-  "location":"Leipzig office",
-  "purchase_date":"2025-01-15"
+  "asset_tag": "AST-1001",
+  "asset_name": "Dell Latitude 5440",
+  "category": "Laptop",
+  "manufacturer": "Dell",
+  "model": "Latitude 5440",
+  "serial_number": "SN-1001",
+  "location": "Leipzig",
+  "purchase_date": "2025-01-15"
 }
 ```
 
-Assignment JSON: `{"user_id":1}`. Asset statuses are `available`, `assigned`, `maintenance` and `retired`. Assignment is performed only through the assign/unassign endpoints so the foreign-key relationship and status stay consistent. Assigned assets must be returned before editing or deleting them; employees with assigned assets cannot be deleted.
+## 6. Docker Containerization
 
-### Dashboard and health
+Docker is used to package the application and its dependencies into a container image.
 
-| Method | Endpoint | Purpose |
-|---|---|---|
-| GET | `/dashboard/stats` | Inventory and employee totals |
-| GET | `/health` | Readiness check including MySQL ping |
-| GET | `/health/live` | Process liveness check |
+### Dockerfile
 
-## Assignment scope notes
+A multi-stage Docker build is used to keep the final image small and reduce unnecessary runtime dependencies.
 
-This package contains the application and database implementation only. It intentionally does not include Dockerfiles, Compose files or Kubernetes manifests. The assignment brief states that AI assistance is permitted for website and database implementation but not for Docker and Kubernetes work; implement those deliverables independently.
+The first stage uses:
 
-## Assumptions
+`golang:1.25-bookworm`
 
-- The original CRUD behaviour is represented by employee CRUD at `/api/v1/users`; asset management is added as a second resource.
-- The app listens on port `8080` by default; `PORT` can override it.
-- The MySQL database is created separately; the app creates/updates the two required tables at startup.
-- Employee email, employee ID, asset tag and non-empty serial numbers are unique.
-- One asset can be assigned to at most one employee at a time; one employee may hold multiple assets.
-- No authentication/authorization was specified in the assignment brief, so this educational app does not implement login. Do not expose it to an untrusted network without adding authentication and authorization.
-- List endpoints are capped at 500 records for this project-scale implementation.
+This stage downloads Go modules and compiles the application into a Linux executable.
+
+Static compilation is configured using `CGO_ENABLED=0`.
+
+The runtime stage uses:
+
+`gcr.io/distroless/static-debian12:nonroot`
+
+The Distroless image contains only the components needed to run the compiled executable. The application runs as a non-root user and listens on port 8080.
+
+### Build the Docker Image
+
+Open PowerShell in the project directory:
+
+```powershell
+cd "D:\DevOps Final"
+docker build -t it-asset-inventory:v2 .
+```
+
+Verify the image:
+
+```powershell
+docker images it-asset-inventory
+```
+
+### Docker Compose
+
+Docker Compose is used to run the Go application and MySQL together.
+
+Two services are defined:
+
+**app:** Runs the Go Gin application on port 8080.
+
+**db:** Runs MySQL 8.0 and stores application data.
+
+Both services communicate over the named Docker network `inventory_network`.
+
+A named volume, `mysql_data`, stores MySQL data so records remain available after containers are recreated.
+
+### Environment Configuration
+
+Create a `.env` file in the project directory with the following variables:
+
+```env
+MYSQL_ROOT_PASSWORD=replace-with-a-strong-root-password
+MYSQL_PASSWORD=replace-with-a-strong-app-password
+```
+
+These are placeholders. Actual passwords should not be committed to GitHub.
+
+### Start Docker Compose
+
+```powershell
+docker compose up -d
+```
+
+Check the containers:
+
+```powershell
+docker compose ps
+```
+
+Both the application and database containers should report a healthy status after initialization.
+
+Open the application in a browser:
+
+`http://localhost:8080`
+
+### Health Check
+
+The Docker application health check invokes the application's health-check command, which requests the `/health` endpoint.
+
+The MySQL service has its own health check, and the Go application is configured to start after the database becomes healthy.
+
+### Test Data Persistence
+
+Database persistence was tested by creating employee and asset records, recreating the Compose containers, and checking that the records were still available.
+
+The records remained in the MySQL volume.
+
+To stop the environment without deleting the database volume:
+
+```powershell
+docker compose down
+```
+
+## 7. Kubernetes Deployment
+
+The application was deployed locally using Minikube.
+
+Kubernetes manages the application and database containers and helps maintain the configured number of application replicas.
+
+### Start Minikube
+
+The local cluster was started with the Docker driver:
+
+```powershell
+minikube start --driver=docker --cpus=4 --memory=4096
+```
+
+Verify the cluster:
+
+```powershell
+minikube status
+kubectl get nodes
+```
+
+The Minikube node should report `Ready`.
+
+### Load the Application Image
+
+The application image was built locally and loaded into Minikube:
+
+```powershell
+minikube image load it-asset-inventory:v2
+```
+
+Verify:
+
+```powershell
+minikube image ls
+```
+
+### Kubernetes Configuration Files
+
+Four YAML files are used:
+
+| File | Purpose |
+|---|---|
+| `k8s/deployment.yaml` | Go application Deployment |
+| `k8s/service.yaml` | Go application Service |
+| `k8s/mysql-deployment.yaml` | MySQL Deployment and persistent storage |
+| `k8s/mysql-service.yaml` | Internal MySQL Service |
+
+### Database Secret
+
+Database credentials are stored in a Kubernetes Secret.
+
+For the local practice cluster, the Secret was created using environment values from the local `.env` file:
+
+```powershell
+kubectl create secret generic inventory-db-secret --from-env-file

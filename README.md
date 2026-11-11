@@ -1,72 +1,20 @@
-# IT Asset Inventory Management System
+# IT Asset Inventory — DevOps Project
 
-A web-based IT asset inventory application developed using Go, Gin, and MySQL. The application helps maintain employee records, register IT assets, and track which devices are assigned to employees.
+This project uses a small IT asset inventory web application to demonstrate a practical DevOps workflow: building a container image, running services with Docker Compose, deploying to Kubernetes, and testing performance and recovery. The application uses Go (Gin), MySQL 8.0, and a basic HTML/CSS/JavaScript frontend. It provides asset and employee management through a REST API.
 
-The project also demonstrates how the application can be containerized using Docker, deployed on Kubernetes using Minikube, and tested for performance and availability.
+## Technology stack
 
-## 1. Project Overview
-
-The main purpose of this project is to manage IT assets through a simple web interface and REST API.
-
-The application supports employee management, asset registration, asset assignment, and basic inventory reporting. MySQL is used to store the information.
-
-The backend was developed in Go using the Gin framework. The frontend uses HTML, CSS, and JavaScript and is embedded into the Go executable.
-
-The DevOps part of the project focuses on containerization, deployment, health monitoring, load testing, and recovery from application failures.
-
-### Technologies Used
-
-| Component | Technology |
-|---|---|
-| Backend | Go and Gin |
-| Frontend | HTML, CSS, JavaScript |
+| Area | Tools |
+| --- | --- |
+| Application | Go, Gin, HTML, CSS, JavaScript |
 | Database | MySQL 8.0 |
-| Containerization | Docker |
-| Multi-container setup | Docker Compose |
-| Container orchestration | Kubernetes |
-| Local Kubernetes cluster | Minikube |
-| Load testing | Grafana k6 |
+| Containers | Docker, multi-stage Dockerfile, Docker Compose |
+| Orchestration | Kubernetes, Minikube, kubectl |
+| Performance testing | Grafana k6 |
 | Monitoring | Kubernetes Metrics Server |
-| Version control | Git and GitHub |
-| Development environment | Windows 11, VS Code, PowerShell |
+| Version control | Git, GitHub |
 
-## 2. Application Features
-
-### Employee Management
-
-The application allows users to:
-
-- Register employees with their employee ID, name, email, and department.
-- View all registered employees.
-- Update employee information.
-- Delete employee records when no assets are assigned.
-
-### Asset Management
-
-IT assets can be registered with details such as asset tag, asset name, category, manufacturer, model, serial number, location, and purchase date.
-
-The application supports creating, viewing, updating, and deleting assets.
-
-The available asset statuses are:
-
-- Available
-- Assigned
-- Maintenance
-- Retired
-
-### Asset Assignment
-
-An available asset can be assigned to an employee. The system maintains the relationship between the employee and the assigned asset.
-
-An assigned asset can also be returned to inventory using the unassign operation.
-
-### Dashboard
-
-The dashboard displays inventory information, including total assets, assigned assets, available assets, and registered employees.
-
-The interface also provides asset searching and status-based filtering.
-
-## 3. Project Structure
+## Project Structure
 
 The project is organized as follows:
 
@@ -109,235 +57,208 @@ DevOps Final/
 Database credentials are stored in a local `.env` file, which is excluded from Git.
 
 Large raw load-testing files and compiled executables are also excluded from the repository.
+## 1. Docker image
 
-## 4. Database Configuration
+The Dockerfile uses two stages. `golang:1.25-bookworm` compiles the Go application with `CGO_ENABLED=0`, and `gcr.io/distroless/static-debian12:nonroot` runs the resulting binary. The runtime container uses a non-root user and exposes port `8080`.
 
-MySQL 8.0 is used to store employee and asset information.
-
-The application connects to MySQL when it starts and runs database migrations to create the required tables if they do not already exist.
-
-The database schema is also available in `database-schema.sql`.
-
-The default database settings used in this project are:
-
-| Setting | Value |
-|---|---|
-| Database | `it_asset_inventory` |
-| Database user | `appuser` |
-| MySQL port | `3306` |
-| Database host in Docker Compose | `db` |
-| Database host in Kubernetes | `inventory-mysql` |
-
-Database passwords are supplied through environment variables rather than being stored directly in the application source code.
-
-## 5. REST API
-
-The application exposes REST endpoints using Gin.
-
-The main API prefix is `/api/v1`.
-
-### Employee Endpoints
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/v1/users` | Create an employee |
-| GET | `/api/v1/users` | List employees |
-| GET | `/api/v1/users/:id` | Get employee details |
-| PUT | `/api/v1/users/:id` | Update employee information |
-| DELETE | `/api/v1/users/:id` | Delete an employee |
-
-Employee CRUD operations are also available through the unversioned `/users` routes.
-
-### Asset Endpoints
-
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | `/api/v1/assets` | Register an asset |
-| GET | `/api/v1/assets` | List assets |
-| GET | `/api/v1/assets/:id` | Get asset details |
-| PUT | `/api/v1/assets/:id` | Update an asset |
-| DELETE | `/api/v1/assets/:id` | Delete an asset |
-| PATCH | `/api/v1/assets/:id/assign` | Assign an asset |
-| PATCH | `/api/v1/assets/:id/unassign` | Return an asset |
-
-### Dashboard and Health Endpoints
-
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | `/api/v1/dashboard/stats` | Dashboard statistics |
-| GET | `/health` | Application and database health |
-| GET | `/health/live` | HTTP server liveness |
-
-The `/health` endpoint checks whether the application can communicate with the MySQL database.
-
-The `/health/live` endpoint returns a response when the HTTP server is functioning.
-
-### Example Asset Request
-
-```json
-{
-  "asset_tag": "AST-1001",
-  "asset_name": "Dell Latitude 5440",
-  "category": "Laptop",
-  "manufacturer": "Dell",
-  "model": "Latitude 5440",
-  "serial_number": "SN-1001",
-  "location": "Leipzig",
-  "purchase_date": "2025-01-15"
-}
-```
-
-## 6. Docker Containerization
-
-Docker is used to package the application and its dependencies into a container image.
-
-### Dockerfile
-
-A multi-stage Docker build is used to keep the final image small and reduce unnecessary runtime dependencies.
-
-The first stage uses:
-
-`golang:1.25-bookworm`
-
-This stage downloads Go modules and compiles the application into a Linux executable.
-
-Static compilation is configured using `CGO_ENABLED=0`.
-
-The runtime stage uses:
-
-`gcr.io/distroless/static-debian12:nonroot`
-
-The Distroless image contains only the components needed to run the compiled executable. The application runs as a non-root user and listens on port 8080.
-
-### Build the Docker Image
-
-Open PowerShell in the project directory:
+Build the image from the project directory:
 
 ```powershell
-cd "D:\DevOps Final"
 docker build -t it-asset-inventory:v2 .
-```
-
-Verify the image:
-
-```powershell
 docker images it-asset-inventory
 ```
 
-### Docker Compose
+## 2. Docker Compose
 
-Docker Compose is used to run the Go application and MySQL together.
+Docker Compose runs the Go application and MySQL 8.0 together. The services communicate on `inventory_network`, while the named volume `mysql_data` keeps database records when the containers are recreated. Health checks are defined for both services, and the application depends on the database becoming healthy.
 
-Two services are defined:
+Create a local `.env` file in the project root:
 
-**app:** Runs the Go Gin application on port 8080.
-
-**db:** Runs MySQL 8.0 and stores application data.
-
-Both services communicate over the named Docker network `inventory_network`.
-
-A named volume, `mysql_data`, stores MySQL data so records remain available after containers are recreated.
-
-### Environment Configuration
-
-Create a `.env` file in the project directory with the following variables:
-
-```env
+```dotenv
 MYSQL_ROOT_PASSWORD=replace-with-a-strong-root-password
 MYSQL_PASSWORD=replace-with-a-strong-app-password
 ```
 
-These are placeholders. Actual passwords should not be committed to GitHub.
+These values are examples. The real `.env` file is excluded from Git and must not be committed.
 
-### Start Docker Compose
+Start and check the services:
 
 ```powershell
 docker compose up -d
-```
-
-Check the containers:
-
-```powershell
 docker compose ps
+Invoke-RestMethod http://127.0.0.1:8080/health
 ```
 
-Both the application and database containers should report a healthy status after initialization.
+The application is available at `http://localhost:8080`. A healthy response from `/health` confirms that the application can connect to MySQL.
 
-Open the application in a browser:
-
-`http://localhost:8080`
-
-### Health Check
-
-The Docker application health check invokes the application's health-check command, which requests the `/health` endpoint.
-
-The MySQL service has its own health check, and the Go application is configured to start after the database becomes healthy.
-
-### Test Data Persistence
-
-Database persistence was tested by creating employee and asset records, recreating the Compose containers, and checking that the records were still available.
-
-The records remained in the MySQL volume.
-
-To stop the environment without deleting the database volume:
+Stop the containers without removing the database volume:
 
 ```powershell
 docker compose down
 ```
 
-## 7. Kubernetes Deployment
+Database persistence was verified by creating records, restarting the Compose environment, and confirming that the records remained available.
 
-The application was deployed locally using Minikube.
+## 3. Kubernetes deployment
 
-Kubernetes manages the application and database containers and helps maintain the configured number of application replicas.
+The application and MySQL were deployed on a local Minikube cluster. The repository contains Deployments and Services for both components. Kubernetes uses a Secret for database credentials and a PersistentVolumeClaim for MySQL storage.
 
-### Start Minikube
-
-The local cluster was started with the Docker driver:
+Start Minikube and load the local application image:
 
 ```powershell
-minikube start --driver=docker --cpus=4 --memory=4096
-```
-
-Verify the cluster:
-
-```powershell
-minikube status
+minikube start --driver=docker
+minikube image load it-asset-inventory:v2
 kubectl get nodes
 ```
 
-The Minikube node should report `Ready`.
-
-### Load the Application Image
-
-The application image was built locally and loaded into Minikube:
+Create the database Secret from the local `.env` file:
 
 ```powershell
-minikube image load it-asset-inventory:v2
+kubectl create secret generic inventory-db-secret --from-env-file=.env
 ```
 
-Verify:
+Apply the Kubernetes manifests:
 
 ```powershell
-minikube image ls
+kubectl apply -f k8s/mysql-deployment.yaml
+kubectl apply -f k8s/mysql-service.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
 ```
 
-### Kubernetes Configuration Files
-
-Four YAML files are used:
-
-| File | Purpose |
-|---|---|
-| `k8s/deployment.yaml` | Go application Deployment |
-| `k8s/service.yaml` | Go application Service |
-| `k8s/mysql-deployment.yaml` | MySQL Deployment and persistent storage |
-| `k8s/mysql-service.yaml` | Internal MySQL Service |
-
-### Database Secret
-
-Database credentials are stored in a Kubernetes Secret.
-
-For the local practice cluster, the Secret was created using environment values from the local `.env` file:
+Check the deployment:
 
 ```powershell
-kubectl create secret generic inventory-db-secret --from-env-file
+kubectl get pods
+kubectl get deployments
+kubectl get services
+kubectl get pvc
+```
+
+Forward the application Service to the local computer:
+
+```powershell
+kubectl port-forward service/inventory-app 8081:8080
+```
+
+In a second terminal, check connectivity:
+
+```powershell
+Invoke-RestMethod http://127.0.0.1:8081/health
+```
+
+The verified health response reported `status: ok` and `database: connected`. The application can be opened at `http://localhost:8081` while port forwarding remains active.
+
+### Kubernetes resources and health checks
+
+| Resource | Go application | MySQL |
+| --- | ---: | ---: |
+| CPU limit | 500m | 500m |
+| Memory limit | 256 MiB | 768 MiB |
+
+The application requests `100m` CPU and `128 MiB` memory. Its Deployment uses readiness and liveness probes on `/health`. The MySQL and Go application workloads run as separate pods, and the database stores its data on persistent storage.
+
+A `ClusterIP` Service was used because the deployment runs inside a local Minikube cluster. For access from the host computer, `kubectl port-forward` exposes the service on port `8081`. A public `NodePort` or `LoadBalancer` was not needed for this test setup.
+
+## 4. Functional verification
+
+Before load testing, the application was checked through the web interface and API. The tests covered creating and listing employees and assets, editing an asset, deleting an asset, and checking database connectivity. In one update test, a Lenovo asset's location was changed from Leipzig to Berlin; an Acer asset was removed in a delete test.
+
+The main endpoints used for verification were:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /health` | Application and database check |
+| `GET /api/v1/assets` | List assets; k6 test target |
+| `/api/v1/users` | Employee records |
+| `/api/v1/assets` | Asset records |
+
+## 5. Load testing with k6
+
+The k6 script, `inventory-load-test.js`, sends requests to `GET http://127.0.0.1:8081/api/v1/assets` through Kubernetes port forwarding. It uses a ramping-VUs scenario that reaches 500 virtual users and keeps that load for 60 seconds.
+
+| Stage | Duration | Target VUs |
+| --- | ---: | ---: |
+| Ramp-up | 20 s | 100 |
+| Ramp-up | 20 s | 300 |
+| Ramp-up | 20 s | 500 |
+| Sustained load | 60 s | 500 |
+| Ramp-down | 10 s | 0 |
+
+Keep port forwarding running, then execute:
+
+```powershell
+k6 run --summary-export=sustained-load-results.json inventory-load-test.js
+```
+
+The script checks for HTTP `200` responses. Its thresholds include a p95 response time below `500 ms` and an HTTP failure rate below `5%`.
+
+### Final test results
+
+| Metric | Result |
+| --- | ---: |
+| Total requests | 45,565 |
+| Peak virtual users | 500 |
+| Sustained peak load | 60 s |
+| Average throughput | 348.09 requests/s |
+| Average response time | 3.11 ms |
+| p90 response time | 5.47 ms |
+| p95 response time | 6.41 ms |
+| Maximum response time | 13.50 ms |
+| HTTP failure rate | 0% |
+
+All requests in the final run succeeded, and the configured thresholds passed. The results represent the read-only asset-listing endpoint on the local Minikube setup; they should not be treated as production benchmarks or as performance results for every API operation.
+
+The final summary is saved in `sustained-load-results.json`. Detailed raw time-series output was retained locally rather than committed because of its size.
+
+## 6. CPU and memory monitoring
+
+Metrics Server was enabled in Minikube to observe pod resource usage:
+
+```powershell
+minikube addons enable metrics-server
+kubectl top pods
+```
+
+Measurements collected during the load test are included in `pod-metrics.csv`.
+
+| Observed peak | Go application | MySQL |
+| --- | ---: | ---: |
+| CPU | 166m | 139m |
+| Memory | 31 MiB | 455 MiB |
+
+Both workloads remained below their configured CPU and memory limits during the monitored period. These are sampled measurements, not a continuous trace of every moment of execution.
+
+The application uses Go’s standard `net/http` server. No fixed request-worker pool was configured: incoming requests are handled concurrently using goroutines scheduled by the Go runtime. During the 500-VU test, the measured CPU and memory usage remained below the pod limits, so the available evidence does not indicate resource saturation.
+
+The test completed 45,565 HTTP requests with no HTTP failures, and the p95 response time was 6.41 ms. This supports the conclusion that the local deployment handled the tested read-only workload successfully. The figures do not establish performance under write-heavy workloads or in a production cluster.
+
+## 7. Failure and recovery tests
+
+Two recovery checks were performed:
+
+1. **Pod replacement:** The application pod was deleted. Its Deployment created a replacement, which returned to the Running state.
+2. **Container restart:** The running application container was stopped through the Minikube container runtime using `crictl`. Kubernetes restarted the container in the same pod.
+
+For the container restart test, the restart count increased from `0` to `1`. The stopped container had exit code `137`. After recovery, the application passed its health check and connected to MySQL successfully.
+
+Useful inspection commands:
+
+```powershell
+kubectl get pods
+kubectl describe pod <application-pod-name>
+kubectl logs deployment/inventory-app
+```
+
+## 8. Assumptions and limitations
+
+- This setup was tested locally on Windows using Docker Desktop, PowerShell and Minikube. The application listens on port `8080` and the Kubernetes port-forward uses local port `8081`.
+- The Docker build uses Go `1.25`; MySQL `8.0` is the database engine. The database and its tables are initialized at startup, with configuration passed through environment variables.
+- The Docker Compose and Kubernetes environments use separate MySQL databases; data is not synchronized between them.
+- Database passwords belong in the local `.env` file and Kubernetes Secret, not in committed source files.
+- Kubernetes port forwarding is used for local access; no public ingress or load balancer was configured.
+- The application does not implement user authentication or role-based access control and is not intended to be exposed to an untrusted public network.
+
+## Repository
+
+https://github.com/parameshi7/it-asset-inventory-devops

@@ -1,0 +1,17 @@
+# Credentials
+.env
+.env.*
+!.env.example
+
+# Compiled binaries
+inventory-app
+inventory-app.exe
+*.exe
+
+# Large raw load-test output
+sustained-load-timeseries.json
+
+# Temporary files
+*.log
+*.tmp
+.vscode/

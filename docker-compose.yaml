@@ -1,0 +1,49 @@
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: it_asset_inventory
+      MYSQL_USER: appuser
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - inventory_network
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  app:
+    image: it-asset-inventory:v2
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      DB_HOST: db
+      DB_PORT: "3306"
+      DB_NAME: it_asset_inventory
+      DB_USER: appuser
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      PORT: "8080"
+    healthcheck:
+      test: ["CMD", "/app/inventory-app", "healthcheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - inventory_network
+
+volumes:
+  mysql_data:
+
+networks:
+  inventory_network:
+    driver: bridge

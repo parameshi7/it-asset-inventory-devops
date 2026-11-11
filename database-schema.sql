@@ -1,0 +1,32 @@
+CREATE DATABASE IF NOT EXISTS it_asset_inventory
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE it_asset_inventory;
+
+CREATE TABLE IF NOT EXISTS users (
+  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  employee_id VARCHAR(50) NOT NULL UNIQUE,
+  name VARCHAR(255) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  department VARCHAR(100) NOT NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS assets (
+  id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  asset_tag VARCHAR(50) NOT NULL UNIQUE,
+  asset_name VARCHAR(255) NOT NULL,
+  category VARCHAR(100) NOT NULL,
+  manufacturer VARCHAR(100) NOT NULL DEFAULT '',
+  model VARCHAR(100) NOT NULL DEFAULT '',
+  serial_number VARCHAR(100) NULL UNIQUE,
+  status ENUM('available','assigned','maintenance','retired') NOT NULL DEFAULT 'available',
+  assigned_user_id BIGINT NULL,
+  location VARCHAR(100) NOT NULL DEFAULT '',
+  purchase_date DATE NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_assets_user FOREIGN KEY (assigned_user_id) REFERENCES users(id) ON DELETE RESTRICT ON UPDATE CASCADE,
+  INDEX idx_assets_status (status),
+  INDEX idx_assets_assigned_user (assigned_user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
